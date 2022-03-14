@@ -24,7 +24,7 @@ public class DataRepository {
     /**
      * 接口地址
      */
-    private static final String BASE_URL = "http://192.168.0.104:9089/app/parking-app/";
+    private static final String BASE_URL = "http://192.168.0.107:9089/app/parking-app/";
     /**
      * 超时时间10秒
      */

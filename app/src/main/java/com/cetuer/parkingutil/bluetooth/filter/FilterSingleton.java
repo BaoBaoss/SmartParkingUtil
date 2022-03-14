@@ -14,6 +14,13 @@ public class FilterSingleton {
     }
 
     /**
+     * 清空滤波
+     */
+    public static void clearFilter() {
+        filterMap.clear();
+    }
+
+    /**
      * 根据设备获取滤波类
      * @param address 设备地址
      * @return 滤波类

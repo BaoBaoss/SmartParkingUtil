@@ -1,6 +1,7 @@
 package com.cetuer.parkingutil.ui.page.fingerprint;
 
 import android.Manifest;
+import android.app.Dialog;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -14,9 +15,13 @@ import androidx.annotation.Nullable;
 import com.cetuer.parkingutil.App;
 import com.cetuer.parkingutil.BR;
 import com.cetuer.parkingutil.R;
+import com.cetuer.parkingutil.bluetooth.BleDevice;
 import com.cetuer.parkingutil.bluetooth.BleManager;
+import com.cetuer.parkingutil.data.bean.BeaconDevice;
 import com.cetuer.parkingutil.data.bean.BeaconPoint;
 import com.cetuer.parkingutil.databinding.FragmentFingerprintBinding;
+import com.cetuer.parkingutil.domain.BeaconCollect;
+import com.cetuer.parkingutil.domain.CoordinateInfo;
 import com.cetuer.parkingutil.domain.config.DataBindingConfig;
 import com.cetuer.parkingutil.domain.message.SharedViewModel;
 import com.cetuer.parkingutil.ui.page.BaseFragment;
@@ -27,21 +32,47 @@ import com.cetuer.parkingutil.utils.ToastUtils;
 import com.permissionx.guolindev.PermissionX;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding> {
     /**
      * 所有的坐标
      */
-    private ArrayList<ArrayList<TextView>> coordinate;
+    private ArrayList<ArrayList<CoordinateInfo>> coordinate;
     /**
-     * 上一个配置的坐标
+     * 当前配置的TextView
      */
-    private TextView lastConfig;
+    private TextView curConfig;
     /**
-     * 上一个配置的x和y位置
+     * 当前配置的位置
      */
-    private int xIndex;
-    private int yIndex;
+    private BeaconPoint curPoint;
+    /**
+     * 终点坐标
+     */
+    private BeaconPoint endPoint;
+    /**
+     * 已收集的指纹
+     */
+    private Map<BeaconPoint, Map<String, BeaconCollect>> fingerprintMap;
+    /**
+     * 已完成收集的蓝牙数量
+     */
+    private int completeCount;
+    /**
+     * 收集的次数，用于进度条计算
+     */
+    private int collectCount;
+    /**
+     * 信标总数
+     */
+    private int beaconCount;
+
+    private List<BeaconDevice> deviceList;
+
     private FingerprintViewModel mState;
     private SharedViewModel mEvent;
     private boolean mOpenBluetooth;
@@ -52,6 +83,7 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
         mState = getFragmentScopeViewModel(FingerprintViewModel.class);
         mEvent = App.getInstance().getApplicationScopeViewModel(SharedViewModel.class);
         coordinate = new ArrayList<>();
+        fingerprintMap = new HashMap<>();
     }
 
     @Override
@@ -63,25 +95,131 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         DialogUtils.initLoadingDialog(this.mActivity);
-        //requestPermission();
+        //请求最终坐标
         mState.beaconRequest.requestEndPoint();
-        mState.beaconRequest.getEndPoint().observe(this.mActivity, this::drawMap);
-        mBinding.collectBtn.setOnClickListener(v -> {
-
+        //得到坐标后绘制地图
+        mState.beaconRequest.getEndPoint().observe(this.mActivity, end -> {
+            this.endPoint = end;
+            this.drawMap(end);
         });
-//        mState.beaconRequest.getBeaconLiveData().observe(this.mActivity, beaconDevices -> {
-//            BleManager.getInstance().refreshScanner();
-//            BleManager.getInstance().scanByFilter(beaconDevices.stream().map(BeaconDevice::getMac).collect(Collectors.toList()));
-//        });
-//        BleManager.getInstance().getScanDeviceEvent().observe(this.mActivity, bleDevices -> mState.list.setValue(bleDevices));
-//        mEvent.isOpenBluetooth().observe(mActivity, openBluetooth -> {
-//            mOpenBluetooth = openBluetooth;
-//            controlBluetooth();
-//        });
-//        mEvent.isOpenGPS().observe(mActivity, openGps -> {
-//            mOpenGps = openGps;
-//            controlBluetooth();
-//        });
+        //采集指纹请求权限
+        mBinding.collectBtn.setOnClickListener(v -> {
+            fingerprintMap.put(curPoint, new HashMap<>());
+            requestPermission();
+        });
+        //根据请求到的蓝牙mac扫描蓝牙设备
+        mState.beaconRequest.getBeaconLiveData().observe(this.mActivity, beaconDevices -> {
+            deviceList = beaconDevices;
+            beaconCount = beaconDevices.size();
+            DialogUtils.showProgressDialog();
+            BleManager.getInstance().refreshScanner();
+            BleManager.getInstance().scanByFilter(beaconDevices.stream().map(BeaconDevice::getMac).collect(Collectors.toList()));
+        });
+        //扫描蓝牙回调
+        BleManager.getInstance().getScanDeviceEvent().observe(this.mActivity, bleDevices -> mState.list.setValue(bleDevices));
+        //开始收集
+        mState.list.observe(this.mActivity, this::collectData);
+        mEvent.isOpenBluetooth().observe(mActivity, openBluetooth -> {
+            mOpenBluetooth = openBluetooth;
+            controlBluetooth();
+        });
+        mEvent.isOpenGPS().observe(mActivity, openGps -> {
+            mOpenGps = openGps;
+            controlBluetooth();
+        });
+    }
+
+    /**
+     * 收集数据
+     *
+     * @param data 扫描到的数据
+     */
+    public void collectData(List<BleDevice> data) {
+        collectCount += data.size();
+        //刷新进度条
+        DialogUtils.setProgressValue((int) ((collectCount / (beaconCount * BeaconCollect.MAX * 1.0)) * 100));
+        //为对应的信标增加数据
+        for (BleDevice beaconDevice : data) {
+            Map<String, BeaconCollect> map = fingerprintMap.get(curPoint);
+            if (map != null) {
+                String mac = beaconDevice.getDevice().getAddress();
+                if (map.containsKey(mac)) {
+                    map.get(mac).add(beaconDevice.getRssi());
+                } else {
+                    BeaconCollect collect = new BeaconCollect(mac);
+                    collect.setOnComplete(() -> {
+                        completeCount++;
+                        //此坐标所有数据收集完成
+                        if (completeCount == beaconCount) {
+                            BleManager.getInstance().stopScan();
+                            DialogUtils.dismissProgressDialog();
+                            ToastUtils.showShortToast(this.mActivity, "(" + curPoint.getX() + "," + curPoint.getY() + ") 收集完成");
+                            coordinate.get(curPoint.getX()).get(curPoint.getY()).setCollect(true);
+                            jumpNext();
+                        }
+                    });
+                    map.put(mac, collect);
+                }
+            }
+        }
+    }
+
+    /**
+     * 初始化收集信息
+     */
+    public void initCollectInfo() {
+        this.completeCount = 0;
+        this.collectCount = 0;
+    }
+
+    /**
+     * 跳转到下一个未完成的地址
+     */
+    public void jumpNext() {
+        initCollectInfo();
+        //当前坐标变绿，下一个未设置的变红
+        curConfig.setBackgroundColor(Color.rgb(0, 255, 0));
+        int x = curPoint.getX();
+        int y = curPoint.getY();
+        while (true) {
+            //到行尾，跳转下一行
+            if (y + 1 >= endPoint.getY()) {
+                //到最后一个
+                if (x + 1 >= endPoint.getX()) {
+                    //检测之前是否有未收集的
+                    boolean flag = true;
+                    for (int i = 0; i < coordinate.size() && flag; i++) {
+                        for (int j = 0; j < coordinate.get(i).size() && flag; j++) {
+                            if (!coordinate.get(i).get(j).isCollect()) flag = false;
+                        }
+                    }
+                    if (!flag) {
+                        x = 0;
+                        y = 0;
+                        continue;
+                    }
+                    curConfig.setBackgroundColor(Color.rgb(255, 0, 0));
+                    ToastUtils.showLongToast(this.mActivity, "所有坐标均已收集完成");
+                    mBinding.submitBtn.setEnabled(true);
+                    break;
+                } else {
+                    x++;
+                    y = 0;
+                    if (coordinate.get(x).get(y).isCollect()) continue;
+                    coordinate.get(x).get(y).getTextView().setBackgroundColor(Color.rgb(255, 0, 0));
+                    curConfig = coordinate.get(x).get(y).getTextView();
+                    curPoint = new BeaconPoint(x, y);
+                    break;
+                }
+            } else {
+                y++;
+                if (coordinate.get(x).get(y).isCollect()) continue;
+                coordinate.get(x).get(y).getTextView().setBackgroundColor(Color.rgb(255, 0, 0));
+                curConfig = coordinate.get(x).get(y).getTextView();
+                curPoint = new BeaconPoint(x, y);
+                break;
+            }
+        }
     }
 
     /**
@@ -100,15 +238,15 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
         }
         mBinding.fingerprintMap.addView(topLinearLayout);
         //y行
-        for (int i = 0; i < beaconPoint.getY(); i++) {
+        for (int i = 0; i < beaconPoint.getX(); i++) {
             LinearLayout linearLayout = new LinearLayout(this.mActivity);
             //保存本行坐标
-            ArrayList<TextView> points = new ArrayList<>();
+            ArrayList<CoordinateInfo> points = new ArrayList<>();
             linearLayout.setOrientation(LinearLayout.HORIZONTAL);
             linearLayout.setGravity(Gravity.CENTER);
             //x列
-            for (int j = 0; j < beaconPoint.getX(); j++) {
-                if(j == 0) {
+            for (int j = 0; j < beaconPoint.getY(); j++) {
+                if (j == 0) {
                     //左侧边框
                     View leftLine = new View(this.mActivity);
                     leftLine.setLayoutParams(new LinearLayout.LayoutParams(2, 202));
@@ -120,25 +258,32 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
                 textView.setLayoutParams(new LinearLayout.LayoutParams(200, 200));
                 textView.setText("( " + i + " , " + j + " )");
                 textView.setGravity(Gravity.CENTER);
-                if(i == 0 && j == 0) {
+                if (i == 0 && j == 0) {
                     //默认从(0,0)开始配置
-                    xIndex = 0;
-                    yIndex = 0;
-                    lastConfig = textView;
+                    curPoint = new BeaconPoint(0, 0);
+                    curConfig = textView;
                     textView.setBackgroundColor(Color.rgb(255, 0, 0));
                 }
                 //点击配置当前位置
+                int finalI = i;
+                int finalJ = j;
                 textView.setOnClickListener(v -> {
-                    lastConfig.setBackgroundColor(Color.rgb(255,255,255));
+                    if (!coordinate.get(curPoint.getX()).get(curPoint.getY()).isCollect()) {
+                        curConfig.setBackgroundColor(Color.rgb(255, 255, 255));
+                    } else {
+                        //已收集的为绿色
+                        curConfig.setBackgroundColor(Color.rgb(0, 255, 0));
+                    }
                     textView.setBackgroundColor(Color.rgb(255, 0, 0));
-                    lastConfig = textView;
+                    curConfig = textView;
+                    curPoint = new BeaconPoint(finalI, finalJ);
                 });
                 linearLayout.addView(textView);
                 View verticalLine = new View(this.mActivity);
                 verticalLine.setLayoutParams(new LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.WRAP_CONTENT));
                 verticalLine.setBackgroundColor(Color.BLACK);
                 linearLayout.addView(verticalLine);
-                points.add(textView);
+                points.add(new CoordinateInfo(textView));
             }
             View horizontalLine = new View(this.mActivity);
             horizontalLine.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2));
@@ -158,7 +303,7 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
                 .permissions(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
                 .onForwardToSettings((scope, deniedList) -> scope.showForwardToSettingsDialog(deniedList, "您永久拒绝了以下权限，是否需要重新打开？", "设置", "取消"))
                 .onExplainRequestReason((scope, deniedList) -> {
-                    scope.showRequestReasonDialog(deniedList, "为了获取蓝牙定位需要如下权限", "确定", "取消");
+                    scope.showRequestReasonDialog(deniedList, "为了采集指纹需要如下权限", "确定", "取消");
                 })
                 .request((allGranted, grantedList, deniedList) -> {
                     if (!allGranted) {
@@ -186,7 +331,15 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
                 && mOpenGps
                 && PermissionX.isGranted(mActivity, Manifest.permission.ACCESS_COARSE_LOCATION)
                 && PermissionX.isGranted(mActivity, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            mState.beaconRequest.requestBeaconList();
+            if (deviceList != null && !BleManager.getInstance().isScanning()) {
+                DialogUtils.showProgressDialog();
+                BleManager.getInstance().refreshScanner();
+                BleManager.getInstance().scanByFilter(deviceList.stream().map(BeaconDevice::getMac).collect(Collectors.toList()));
+                return;
+            }
+            if (deviceList == null) {
+                mState.beaconRequest.requestBeaconList();
+            }
         }
         if (!mOpenBluetooth || !mOpenGps) {
             BleManager.getInstance().stopScan();

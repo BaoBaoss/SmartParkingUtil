@@ -53,6 +53,7 @@ dependencies {
     implementation 'com.afollestad.material-dialogs:commons:0.9.6.0'
     //Loading View
     implementation 'com.carson_ho:Kawaii_LoadingView:1.0.0'
+    implementation 'com.daimajia.numberprogressbar:library:1.4@aar'
 
     //网络请求
     implementation 'com.squareup.okhttp3:okhttp:4.9.3'

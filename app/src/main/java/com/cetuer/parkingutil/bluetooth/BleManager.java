@@ -145,6 +145,14 @@ public class BleManager {
     }
 
     /**
+     * 是否正在扫描
+     * @return true：是，false：否
+     */
+    public boolean isScanning() {
+        return this.scanning;
+    }
+
+    /**
      * 初始化
      *
      * @param app 上下文
@@ -277,6 +285,7 @@ public class BleManager {
             KLog.w("没有开始扫描，无法停止...");
             return;
         }
+        FilterSingleton.clearFilter();
         scanning = false;
         refreshScanner();
         if (bluetoothLeScanner != null) {
@@ -295,7 +304,7 @@ public class BleManager {
     }
 
     /**
-     * 创建默认扫描设置（耗电较高）
+     * 创建默认扫描设置
      *
      * @return 扫描设置
      */

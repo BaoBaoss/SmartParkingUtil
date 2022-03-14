@@ -367,12 +367,15 @@ public class DialogUtils {
 
     private static LoadingDialog loadingDialog;
 
+    private static ProgressDialog progressDialog;
+    
     /**
      * 初始化等待对话框
      * @param context 上下文
      */
     public static void initLoadingDialog(Context context) {
         loadingDialog = new LoadingDialog(context);
+        progressDialog = new ProgressDialog(context);
     }
     /**
      * 显示网络等待对话框
@@ -386,6 +389,29 @@ public class DialogUtils {
      */
     public static void dismissLoadingDialog() {
         loadingDialog.dismiss();
+    }
+
+    /**
+     * 显示进度加载对话框
+     */
+    public static void showProgressDialog() {
+        progressDialog.init();
+        progressDialog.show();
+    }
+
+    /**
+     * 设置进度
+     * @param value 进度
+     */
+    public static void setProgressValue(int value) {
+        progressDialog.setProgress(value);
+    }
+
+    /**
+     * 关闭进度加载对话框
+     */
+    public static void dismissProgressDialog() {
+        progressDialog.dismiss();
     }
 }
 
