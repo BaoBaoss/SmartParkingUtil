@@ -19,6 +19,7 @@ import com.cetuer.parkingutil.bluetooth.BleDevice;
 import com.cetuer.parkingutil.bluetooth.BleManager;
 import com.cetuer.parkingutil.data.bean.BeaconDevice;
 import com.cetuer.parkingutil.data.bean.BeaconPoint;
+import com.cetuer.parkingutil.data.repository.DataRepository;
 import com.cetuer.parkingutil.databinding.FragmentFingerprintBinding;
 import com.cetuer.parkingutil.domain.BeaconCollect;
 import com.cetuer.parkingutil.domain.CoordinateInfo;
@@ -33,8 +34,10 @@ import com.permissionx.guolindev.PermissionX;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding> {
@@ -106,6 +109,19 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
         mBinding.collectBtn.setOnClickListener(v -> {
             fingerprintMap.put(curPoint, new HashMap<>());
             requestPermission();
+        });
+        //提交数据
+        mBinding.submitBtn.setOnClickListener(v -> {
+            Map<String, Map<String, Double>> data = new HashMap<>();
+            for (BeaconPoint next : fingerprintMap.keySet()) {
+                Map<String, BeaconCollect> collectMap = fingerprintMap.get(next);
+                Map<String, Double> map = new HashMap<>();
+                for (String next1 : collectMap.keySet()) {
+                    map.put(next1, collectMap.get(next1).getAvg());
+                }
+                data.put(next.getX() + "," + next.getY(), map);
+            }
+            DataRepository.getInstance().sendFingerprintData(data, this.mActivity);
         });
         //根据请求到的蓝牙mac扫描蓝牙设备
         mState.beaconRequest.getBeaconLiveData().observe(this.mActivity, beaconDevices -> {

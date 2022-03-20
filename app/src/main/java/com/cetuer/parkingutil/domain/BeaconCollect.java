@@ -63,8 +63,8 @@ public class BeaconCollect {
      *
      * @return 平均值
      */
-    public int getAvg() {
-        return (int) (this.sum / MAX);
+    public double getAvg() {
+        return this.sum * 1.0 / MAX;
     }
 
     public long getSum() {

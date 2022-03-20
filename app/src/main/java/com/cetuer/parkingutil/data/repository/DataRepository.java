@@ -1,11 +1,16 @@
 package com.cetuer.parkingutil.data.repository;
 
+import android.content.Context;
+
 import com.cetuer.parkingutil.data.api.BeaconService;
+import com.cetuer.parkingutil.data.api.FingerprintService;
 import com.cetuer.parkingutil.data.bean.BeaconDevice;
 import com.cetuer.parkingutil.data.bean.BeaconPoint;
 import com.cetuer.parkingutil.data.response.ResultData;
 import com.cetuer.parkingutil.data.response.callback.BaseCallBack;
+import com.cetuer.parkingutil.domain.BeaconCollect;
 import com.cetuer.parkingutil.utils.DialogUtils;
+import com.cetuer.parkingutil.utils.ToastUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -24,7 +29,7 @@ public class DataRepository {
     /**
      * 接口地址
      */
-    private static final String BASE_URL = "http://192.168.0.107:9089/app/parking-app/";
+    private static final String BASE_URL = "http://192.168.0.113:9089/app/parking-app/";
     /**
      * 超时时间10秒
      */
@@ -79,6 +84,21 @@ public class DataRepository {
             @Override
             public void onSuccessful(BeaconPoint data) {
                 result.onResult(data);
+            }
+        });
+    }
+
+    /**
+     * 发送指纹数据
+     * @param data 指纹数据
+     * @param context 上下文
+     */
+    public void sendFingerprintData(Map<String, Map<String, Double>> data, Context context) {
+        DialogUtils.showLoadingDialog();
+        retrofit.create(FingerprintService.class).sendFingerprintData(data).enqueue(new BaseCallBack<Void>() {
+            @Override
+            public void onSuccessful(Void data) {
+                ToastUtils.showShortToast(context, "发送成功！");
             }
         });
     }
