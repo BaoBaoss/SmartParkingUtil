@@ -29,7 +29,7 @@ public class DataRepository {
     /**
      * 接口地址
      */
-    private static final String BASE_URL = "http://192.168.0.113:9089/app/parking-app/";
+    private static final String BASE_URL = "http://192.168.0.107:9089/app/parking-app/";
     /**
      * 超时时间10秒
      */
@@ -63,10 +63,11 @@ public class DataRepository {
     /**
      * 网络请求信标信息
      * @param result 回调
+     * @param parkingLotId 停车场编号
      */
-    public void listBeacon(ResultData.Result<List<BeaconDevice>> result) {
+    public void listBeacon(ResultData.Result<List<BeaconDevice>> result, Integer parkingLotId) {
         DialogUtils.showLoadingDialog();
-        retrofit.create(BeaconService.class).list().enqueue(new BaseCallBack<List<BeaconDevice>>() {
+        retrofit.create(BeaconService.class).listByParkingLotId(parkingLotId).enqueue(new BaseCallBack<List<BeaconDevice>>() {
             @Override
             public void onSuccessful(List<BeaconDevice> data) {
                 result.onResult(data);
@@ -77,10 +78,11 @@ public class DataRepository {
     /**
      * 网络请求终点坐标
      * @param result 回调
+     * @param parkingLotId 停车场编号
      */
-    public void endPoint(ResultData.Result<BeaconPoint> result) {
+    public void endPointByParkingLotId(ResultData.Result<BeaconPoint> result, Integer parkingLotId) {
         DialogUtils.showLoadingDialog();
-        retrofit.create(BeaconService.class).endPoint().enqueue(new BaseCallBack<BeaconPoint>() {
+        retrofit.create(BeaconService.class).endPointByParkingLotId(parkingLotId).enqueue(new BaseCallBack<BeaconPoint>() {
             @Override
             public void onSuccessful(BeaconPoint data) {
                 result.onResult(data);

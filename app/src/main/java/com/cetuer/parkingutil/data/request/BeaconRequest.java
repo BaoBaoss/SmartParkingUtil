@@ -21,15 +21,15 @@ public class BeaconRequest implements BaseRequest {
     /**
      * 请求信标列表
      */
-    public void requestBeaconList() {
-        DataRepository.getInstance().listBeacon(beaconLiveData::postValue);
+    public void requestBeaconList(Integer parkingLotId) {
+        DataRepository.getInstance().listBeacon(beaconLiveData::postValue, parkingLotId);
     }
 
     /**
      * 请求终点坐标
      */
-    public void requestEndPoint() {
-        DataRepository.getInstance().endPoint(endPoint::postValue);
+    public void requestEndPoint(Integer parkingLotId) {
+        DataRepository.getInstance().endPointByParkingLotId(endPoint::postValue, parkingLotId);
     }
 
     public MutableLiveData<List<BeaconDevice>> getBeaconLiveData() {

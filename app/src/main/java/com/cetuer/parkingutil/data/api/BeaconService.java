@@ -9,6 +9,7 @@ import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.http.GET;
+import retrofit2.http.Path;
 
 /**
  * Created by Cetuer on 2022/3/6 15:57.
@@ -17,16 +18,17 @@ import retrofit2.http.GET;
 public interface BeaconService {
 
     /**
-     * 获取所有信标设备信息
+     * 根据停车场编号获取其所有信标设备信息
+     * @param parkingLotId 停车场编号
      * @return 信标设备信息
      */
-    @GET("beacon/list")
-    Call<ResultData<List<BeaconDevice>>> list();
+    @GET("beacon/listByParkingLotId/{parkingLotId}")
+    Call<ResultData<List<BeaconDevice>>> listByParkingLotId(@Path("parkingLotId") Integer parkingLotId);
 
     /**
      * 获取所有信标终点信息
      * @return 信标终点信息
      */
-    @GET("beacon/endPoint")
-    Call<ResultData<BeaconPoint>> endPoint();
+    @GET("beacon/endPointByParkingLotId/{parkingLotId}")
+    Call<ResultData<BeaconPoint>> endPointByParkingLotId(@Path("parkingLotId") Integer parkingLotId);
 }

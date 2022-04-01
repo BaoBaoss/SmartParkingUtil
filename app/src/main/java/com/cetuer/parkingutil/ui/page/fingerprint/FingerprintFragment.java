@@ -99,7 +99,7 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
         super.onViewCreated(view, savedInstanceState);
         DialogUtils.initLoadingDialog(this.mActivity);
         //请求最终坐标
-        mState.beaconRequest.requestEndPoint();
+        mState.beaconRequest.requestEndPoint(2);
         //得到坐标后绘制地图
         mState.beaconRequest.getEndPoint().observe(this.mActivity, end -> {
             this.endPoint = end;
@@ -194,7 +194,7 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
     public void jumpNext() {
         initCollectInfo();
         //当前坐标变绿，下一个未设置的变红
-        curConfig.setBackgroundColor(Color.rgb(0, 255, 0));
+        curConfig.setBackgroundColor(Color.GREEN);
         int x = curPoint.getX();
         int y = curPoint.getY();
         while (true) {
@@ -214,7 +214,7 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
                         y = 0;
                         continue;
                     }
-                    curConfig.setBackgroundColor(Color.rgb(255, 0, 0));
+                    curConfig.setBackgroundColor(Color.RED);
                     ToastUtils.showLongToast(this.mActivity, "所有坐标均已收集完成");
                     mBinding.submitBtn.setEnabled(true);
                     break;
@@ -222,7 +222,7 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
                     x++;
                     y = 0;
                     if (coordinate.get(x).get(y).isCollect()) continue;
-                    coordinate.get(x).get(y).getTextView().setBackgroundColor(Color.rgb(255, 0, 0));
+                    coordinate.get(x).get(y).getTextView().setBackgroundColor(Color.RED);
                     curConfig = coordinate.get(x).get(y).getTextView();
                     curPoint = new BeaconPoint(x, y);
                     break;
@@ -230,7 +230,7 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
             } else {
                 y++;
                 if (coordinate.get(x).get(y).isCollect()) continue;
-                coordinate.get(x).get(y).getTextView().setBackgroundColor(Color.rgb(255, 0, 0));
+                coordinate.get(x).get(y).getTextView().setBackgroundColor(Color.RED);
                 curConfig = coordinate.get(x).get(y).getTextView();
                 curPoint = new BeaconPoint(x, y);
                 break;
@@ -285,12 +285,12 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
                 int finalJ = j;
                 textView.setOnClickListener(v -> {
                     if (!coordinate.get(curPoint.getX()).get(curPoint.getY()).isCollect()) {
-                        curConfig.setBackgroundColor(Color.rgb(255, 255, 255));
+                        curConfig.setBackgroundColor(Color.WHITE);
                     } else {
                         //已收集的为绿色
-                        curConfig.setBackgroundColor(Color.rgb(0, 255, 0));
+                        curConfig.setBackgroundColor(Color.GREEN);
                     }
-                    textView.setBackgroundColor(Color.rgb(255, 0, 0));
+                    textView.setBackgroundColor(Color.RED);
                     curConfig = textView;
                     curPoint = new BeaconPoint(finalI, finalJ);
                 });
@@ -354,7 +354,7 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
                 return;
             }
             if (deviceList == null) {
-                mState.beaconRequest.requestBeaconList();
+                mState.beaconRequest.requestBeaconList(2);
             }
         }
         if (!mOpenBluetooth || !mOpenGps) {
