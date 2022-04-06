@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Dialog;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -12,6 +13,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.afollestad.materialdialogs.DialogAction;
+import com.afollestad.materialdialogs.MaterialDialog;
 import com.cetuer.parkingutil.App;
 import com.cetuer.parkingutil.BR;
 import com.cetuer.parkingutil.R;
@@ -80,6 +83,7 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
     private SharedViewModel mEvent;
     private boolean mOpenBluetooth;
     private boolean mOpenGps;
+    private Integer parkingLotId;
 
     @Override
     protected void initViewModel() {
@@ -98,10 +102,35 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         DialogUtils.initLoadingDialog(this.mActivity);
-        //请求最终坐标
-        mState.beaconRequest.requestEndPoint(2);
+        DialogUtils.showBasicDialog(this.mActivity, "提示", "请输入需要采集的停车场id")
+                .inputType(InputType.TYPE_CLASS_NUMBER)
+                .input("停车场编号", "", (dialog, input) -> {
+                    try {
+                        parkingLotId = Integer.parseInt(input.toString());
+                        //请求最终坐标
+                        mState.beaconRequest.requestEndPoint(parkingLotId);
+
+                        mEvent.isOpenBluetooth().observe(mActivity, openBluetooth -> {
+                            mOpenBluetooth = openBluetooth;
+                            controlBluetooth();
+                        });
+                        mEvent.isOpenGPS().observe(mActivity, openGps -> {
+                            mOpenGps = openGps;
+                            controlBluetooth();
+                        });
+                    } catch (Exception e ) {
+                        e.printStackTrace();
+                        ToastUtils.showShortToast(FingerprintFragment.this.mActivity, "请输入正确的停车场编号！");
+                    }
+
+                }).show();
         //得到坐标后绘制地图
         mState.beaconRequest.getEndPoint().observe(this.mActivity, end -> {
+            if(end.getX() == 0 || end.getY() == 0) {
+                ToastUtils.showShortToast(this.mActivity, "此停车场没有信标");
+                return;
+            }
+            mBinding.collectBtn.setEnabled(true);
             this.endPoint = end;
             this.drawMap(end);
         });
@@ -135,14 +164,6 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
         BleManager.getInstance().getScanDeviceEvent().observe(this.mActivity, bleDevices -> mState.list.setValue(bleDevices));
         //开始收集
         mState.list.observe(this.mActivity, this::collectData);
-        mEvent.isOpenBluetooth().observe(mActivity, openBluetooth -> {
-            mOpenBluetooth = openBluetooth;
-            controlBluetooth();
-        });
-        mEvent.isOpenGPS().observe(mActivity, openGps -> {
-            mOpenGps = openGps;
-            controlBluetooth();
-        });
     }
 
     /**
@@ -354,7 +375,7 @@ public class FingerprintFragment extends BaseFragment<FragmentFingerprintBinding
                 return;
             }
             if (deviceList == null) {
-                mState.beaconRequest.requestBeaconList(2);
+                mState.beaconRequest.requestBeaconList(parkingLotId);
             }
         }
         if (!mOpenBluetooth || !mOpenGps) {
